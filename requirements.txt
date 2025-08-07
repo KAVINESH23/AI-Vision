@@ -1,0 +1,7 @@
+pymupdf
+opencv-python
+numpy
+pytesseract
+pillow
+flask
+gunicorn

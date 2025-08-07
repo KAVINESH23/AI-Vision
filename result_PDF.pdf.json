@@ -1,0 +1,18 @@
+{
+  "UNKNOWN": {
+    "count": 14,
+    "description": "Generic Emergency Light"
+  },
+  "8L0G": {
+    "count": 1,
+    "description": "Generic Emergency Light"
+  },
+  "J0W": {
+    "count": 1,
+    "description": "Generic Emergency Light"
+  },
+  "A1E": {
+    "count": 3,
+    "description": "Exit/Emergency Combo Unit"
+  }
+}

@@ -1,0 +1,136 @@
+{
+  "rulebook": [
+    {
+      "type": "table_row",
+      "symbol": "EXIT",
+      "description": "P * Hau RR",
+      "source_sheet": "PDF.pdf_page_1"
+    },
+    {
+      "type": "table_row",
+      "symbol": "EDGE",
+      "description": "OF \u00a32 CONDUCTOR:",
+      "source_sheet": "PDF.pdf_page_1"
+    },
+    {
+      "type": "table_row",
+      "symbol": "Se",
+      "description": "7 CONTRACTOR IS AUTHORIZED",
+      "source_sheet": "PDF.pdf_page_1"
+    },
+    {
+      "type": "table_row",
+      "symbol": "HATE",
+      "description": "we & \u00a3 a",
+      "source_sheet": "PDF.pdf_page_1"
+    },
+    {
+      "type": "table_row",
+      "symbol": "RATING",
+      "description": "OF UD, BACKLIGHT RATING",
+      "source_sheet": "PDF.pdf_page_3"
+    },
+    {
+      "type": "table_row",
+      "symbol": "MINIM",
+      "description": "OF AS INDICATED (NW",
+      "source_sheet": "PDF.pdf_page_3"
+    },
+    {
+      "type": "table_row",
+      "symbol": "Ree",
+      "description": "ee cm CEE ee",
+      "source_sheet": "PDF.pdf_page_3"
+    },
+    {
+      "type": "table_row",
+      "symbol": "SKY",
+      "description": "APPROVED, SRY APPROVED. ees",
+      "source_sheet": "PDF.pdf_page_3"
+    },
+    {
+      "type": "table_row",
+      "symbol": "BRONZE",
+      "description": "ROUND TAPERED POLE BRONZE",
+      "source_sheet": "PDF.pdf_page_3"
+    },
+    {
+      "type": "table_row",
+      "symbol": "Spor",
+      "description": "re cc vel",
+      "source_sheet": "PDF.pdf_page_5"
+    },
+    {
+      "type": "table_row",
+      "symbol": "Senor",
+      "description": "fee oer | rane",
+      "source_sheet": "PDF.pdf_page_5"
+    },
+    {
+      "type": "table_row",
+      "symbol": "OPTION",
+      "description": "2.2.3 = z gag",
+      "source_sheet": "PDF.pdf_page_5"
+    },
+    {
+      "type": "table_row",
+      "symbol": "OPTION",
+      "description": "22-4 @\u20ac9",
+      "source_sheet": "PDF.pdf_page_5"
+    },
+    {
+      "type": "table_row",
+      "symbol": "HEN",
+      "description": "DAYUGHT 1S. 3",
+      "source_sheet": "PDF.pdf_page_6"
+    },
+    {
+      "type": "table_row",
+      "symbol": "To",
+      "description": "ore rT i i",
+      "source_sheet": "PDF.pdf_page_7"
+    },
+    {
+      "type": "table_row",
+      "symbol": "Ueo",
+      "description": "if 5",
+      "source_sheet": "PDF.pdf_page_8"
+    },
+    {
+      "type": "table_row",
+      "symbol": "PLAN",
+      "description": "NORTH 3 :",
+      "source_sheet": "PDF.pdf_page_8"
+    },
+    {
+      "type": "table_row",
+      "symbol": "TBA",
+      "description": "38 2 a",
+      "source_sheet": "PDF.pdf_page_9"
+    },
+    {
+      "type": "table_row",
+      "symbol": "Se",
+      "description": "es hr \u00ae F",
+      "source_sheet": "PDF.pdf_page_12"
+    },
+    {
+      "type": "table_row",
+      "symbol": "C4",
+      "description": "a EP103",
+      "source_sheet": "PDF.pdf_page_13"
+    },
+    {
+      "type": "table_row",
+      "symbol": "Cy",
+      "description": "ad Codr,",
+      "source_sheet": "PDF.pdf_page_14"
+    },
+    {
+      "type": "table_row",
+      "symbol": "SEN",
+      "description": "OLPAEHE0 eat \u2014y j",
+      "source_sheet": "PDF.pdf_page_16"
+    }
+  ]
+}
