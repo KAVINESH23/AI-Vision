@@ -8,15 +8,19 @@ import json
 import re
 
 # Set Tesseract path (Windows only)
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+try:
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+except Exception:
+    pass
+
 def pdf_to_images(pdf_path, dpi=200):
-    """Convert PDF to list of OpenCV images"""
-    zoom = dpi / 72
-    mat = fitz.Matrix(zoom, zoom)
+    """Convert PDF to list of OpenCV images."""
     doc = fitz.open(pdf_path)
     images = []
     for page_num in range(len(doc)):
         page = doc.load_page(page_num)
+        zoom = dpi / 72
+        mat = fitz.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat)
         img_data = np.frombuffer(pix.samples, dtype=np.uint8)
         img = img_data.reshape(pix.height, pix.width, 3)
@@ -62,75 +66,72 @@ def extract_nearby_text(image, bbox, padding=50):
     roi_y2 = min(h, cy + padding)
     roi = image[roi_y1:roi_y2, roi_x1:roi_x2]
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-    text = pytesseract.image_to_string(gray, config='--psm 6').strip()
-    return [word for word in text.split() if word.isalnum()]
+    return pytesseract.image_to_string(gray, config='--psm 6').strip()
 
 def extract_notes_and_table(pdf_path):
+    """Extract General Notes and Lighting Schedule Table using OCR on image regions"""
     doc = fitz.open(pdf_path)
     rulebook = []
 
     for page_num in range(len(doc)):
         sheet_name = f"{os.path.basename(pdf_path)}_page_{page_num+1}"
-        pix = doc.load_page(page_num).get_pixmap(dpi=200)
+        page = doc.load_page(page_num)
+        pix = page.get_pixmap(dpi=200)
         img_data = np.frombuffer(pix.samples, dtype=np.uint8)
         image = img_data.reshape(pix.height, pix.width, 3)
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
 
         h, w = image.shape[:2]
 
-        # --- Focus on bottom-right: likely location of Lighting Schedule
-        x1, y1 = int(w * 0.5), int(h * 0.6)
-        x2, y2 = w - 50, h - 100
-        roi = image[y1:y2, x1:x2]
+        # --- Region 1: Top-Left (General Notes)
+        roi_notes = image[50:400, 50:700]
+        notes_text = pytesseract.image_to_string(roi_notes, config='--psm 6').strip()
+        if len(notes_text) > 10:
+            for line in notes_text.split('\n'):
+                line = re.sub(r'\s+', ' ', line.strip())
+                if len(line) > 5 and any(kw in line.lower() for kw in ["emergency", "unswitched", "power", "note"]):
+                    rulebook.append({
+                        "type": "note",
+                        "text": line,
+                        "source_sheet": sheet_name
+                    })
 
-        # Enhance for OCR
-        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        table_text = pytesseract.image_to_string(thresh, config='--psm 6').strip()
+        # --- Region 2: Bottom-Right (Lighting Schedule Table)
+        roi_table = image[h-600:h-100, w-800:w-100]
+        table_text = pytesseract.image_to_string(roi_table, config='--psm 6').strip()
 
-        lines = table_text.split('\n')
-        for line in lines:
-            line = re.sub(r'\s+', ' ', line.strip())
-            if not line:
-                continue
+        if len(table_text) > 20:
+            lines = table_text.split('\n')
+            for line in lines:
+                line = re.sub(r'\s+', ' ', line.strip())
+                if not line:
+                    continue
+                parts = line.split()
+                if len(parts) < 3:
+                    continue
 
-            # Try to parse: SYMBOL Description Mount Voltage Lumens
-            parts = line.split(' ')
-            if len(parts) < 3:
-                continue
-
-            # Assume first word is symbol if uppercase and short
-            symbol = parts[0]
-            if len(symbol) <= 6 and symbol.isalnum() and any(c.isupper() for c in symbol):
-                description = ' '.join(parts[1:5])
-                rulebook.append({
-                    "type": "table_row",
-                    "symbol": symbol,
-                    "description": description,
-                    "source_sheet": sheet_name
-                })
-
-        # --- Extract General Notes (top-left)
-        notes_roi = image[50:400, 50:600]
-        notes_text = pytesseract.image_to_string(notes_roi, config='--psm 6').strip()
-
-        for line in notes_text.split('\n'):
-            line = line.strip()
-            if len(line) > 10 and any(kw in line.lower() for kw in ["emergency", "unswitched", "power", "note"]):
-                rulebook.append({
-                    "type": "note",
-                    "text": line,
-                    "source_sheet": sheet_name
-                })
+                symbol = parts[0]
+                if len(symbol) <= 6 and symbol.isalnum() and symbol.isupper():
+                    description = " ".join(parts[1:5])
+                    rulebook.append({
+                        "type": "table_row",
+                        "symbol": symbol,
+                        "description": description,
+                        "source_sheet": sheet_name
+                    })
 
     doc.close()
     return rulebook
+
 def group_lights(detections, rulebook):
     """Group lights using rulebook"""
     symbol_desc = {}
     for item in rulebook:
         if item["type"] == "table_row":
-            symbol_desc[item["symbol"]] = item["description"]
+            symbol = item["symbol"].strip()
+            symbol = symbol.replace('O', '0').replace('l', '1').replace('I', '1')
+            if len(symbol) <= 5 and symbol.isalnum():
+                symbol_desc[symbol] = item["description"]
 
     fallback = {
         "A1": "2x4 LED Emergency Fixture",
@@ -141,6 +142,14 @@ def group_lights(detections, rulebook):
     summary = {}
     for det in detections:
         sym = det["symbol"]
+
+        # Clean up OCR garbage
+        clean_map = {
+            'AIE': 'A1E', 'AlE': 'A1E', 'AE': 'A1E', 'A1': 'A1',
+            'BLOG': 'A1E', 'JOT': 'A1E', 'TA': 'A1E', 'T': 'W'
+        }
+        sym = clean_map.get(sym, sym)
+
         desc = symbol_desc.get(sym, fallback.get(sym, "Generic Emergency Light"))
         key = f"Light_{sym}"
 
@@ -151,7 +160,7 @@ def group_lights(detections, rulebook):
     return {"summary": summary}
 
 def draw_detections(image, detections, output_path):
-    """Draw bounding boxes and labels on image for annotation screenshot"""
+    """Draw bounding boxes and labels"""
     img_copy = image.copy()
     for det in detections:
         x1, y1, x2, y2 = det["bounding_box"]
