@@ -7,7 +7,7 @@
       1263,
       1068
     ],
-    "text_nearby": [],
+    "text_nearby": "",
     "source_sheet": "PDF_page_1"
   },
   {
@@ -18,7 +18,7 @@
       613,
       694
     ],
-    "text_nearby": [],
+    "text_nearby": "[ees",
     "source_sheet": "PDF_page_1"
   },
   {
@@ -29,11 +29,7 @@
       983,
       673
     ],
-    "text_nearby": [
-      "I",
-      "ro",
-      "3"
-    ],
+    "text_nearby": "I\nro\n3",
     "source_sheet": "PDF_page_1"
   },
   {
@@ -44,49 +40,40 @@
       1925,
       1543
     ],
-    "text_nearby": [],
+    "text_nearby": "",
     "source_sheet": "PDF_page_7"
   },
   {
-    "symbol": "8L0G",
+    "symbol": "BLOG",
     "bounding_box": [
       1534,
       935,
       1571,
       952
     ],
-    "text_nearby": [
-      "BLOG"
-    ],
+    "text_nearby": "BLOG\n(8)",
     "source_sheet": "PDF_page_7"
   },
   {
-    "symbol": "J0W",
+    "symbol": "JOT",
     "bounding_box": [
       1850,
       1306,
       1887,
       1329
     ],
-    "text_nearby": [
-      "JOT"
-    ],
+    "text_nearby": "JOT",
     "source_sheet": "PDF_page_8"
   },
   {
-    "symbol": "A1E",
+    "symbol": "AE",
     "bounding_box": [
       1617,
       865,
       1671,
       895
     ],
-    "text_nearby": [
-      "an",
-      "i",
-      "AE",
-      "LACTATION"
-    ],
+    "text_nearby": ": an\ni\n\nAE\n\nLACTATION",
     "source_sheet": "PDF_page_8"
   },
   {
@@ -97,7 +84,7 @@
       761,
       862
     ],
-    "text_nearby": [],
+    "text_nearby": "",
     "source_sheet": "PDF_page_8"
   },
   {
@@ -108,9 +95,7 @@
       1671,
       835
     ],
-    "text_nearby": [
-      "um"
-    ],
+    "text_nearby": "| um\n\u00a5,",
     "source_sheet": "PDF_page_8"
   },
   {
@@ -121,24 +106,18 @@
       1527,
       722
     ],
-    "text_nearby": [
-      "he",
-      "z",
-      "T"
-    ],
+    "text_nearby": "|\nhe\nz T",
     "source_sheet": "PDF_page_8"
   },
   {
-    "symbol": "A1E",
+    "symbol": "AE",
     "bounding_box": [
       1153,
       694,
       1208,
       722
     ],
-    "text_nearby": [
-      "AE"
-    ],
+    "text_nearby": "_ AE",
     "source_sheet": "PDF_page_8"
   },
   {
@@ -149,20 +128,18 @@
       1366,
       616
     ],
-    "text_nearby": [],
+    "text_nearby": "",
     "source_sheet": "PDF_page_8"
   },
   {
-    "symbol": "A1E",
+    "symbol": "TA",
     "bounding_box": [
       1154,
       589,
       1207,
       616
     ],
-    "text_nearby": [
-      "TA"
-    ],
+    "text_nearby": "TA",
     "source_sheet": "PDF_page_8"
   },
   {
@@ -173,7 +150,7 @@
       1048,
       616
     ],
-    "text_nearby": [],
+    "text_nearby": "",
     "source_sheet": "PDF_page_8"
   },
   {
@@ -184,7 +161,7 @@
       1686,
       616
     ],
-    "text_nearby": [],
+    "text_nearby": "",
     "source_sheet": "PDF_page_8"
   },
   {
@@ -195,9 +172,7 @@
       515,
       1234
     ],
-    "text_nearby": [
-      "BLos"
-    ],
+    "text_nearby": "BLos",
     "source_sheet": "PDF_page_10"
   },
   {
@@ -208,7 +183,7 @@
       1914,
       1547
     ],
-    "text_nearby": [],
+    "text_nearby": "",
     "source_sheet": "PDF_page_12"
   },
   {
@@ -219,7 +194,7 @@
       1327,
       955
     ],
-    "text_nearby": [],
+    "text_nearby": "\u201ctet",
     "source_sheet": "PDF_page_13"
   },
   {
@@ -230,13 +205,7 @@
       1655,
       895
     ],
-    "text_nearby": [
-      "Oka",
-      "Nee",
-      "Lactation",
-      "aca",
-      "re"
-    ],
+    "text_nearby": "Oka Nee\nLactation\naca\nre",
     "source_sheet": "PDF_page_13"
   }
 ]
