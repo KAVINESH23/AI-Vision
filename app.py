@@ -1,170 +1,201 @@
-# utils.py
-import fitz  # PyMuPDF
-import cv2
-import numpy as np
-import pytesseract
+# app.py
+from flask import Flask, request, jsonify
 import os
+import threading
 import json
-import re
+from utils import *
 
-# Set Tesseract path (Windows only)
-try:
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-except Exception:
-    pass
+app = Flask(__name__)
 
-def pdf_to_images(pdf_path, dpi=200):
-    """Convert PDF to list of OpenCV images."""
-    doc = fitz.open(pdf_path)
-    images = []
-    for page_num in range(len(doc)):
-        page = doc.load_page(page_num)
-        zoom = dpi / 72
-        mat = fitz.Matrix(zoom, zoom)
-        pix = page.get_pixmap(matrix=mat)
-        img_data = np.frombuffer(pix.samples, dtype=np.uint8)
-        img = img_data.reshape(pix.height, pix.width, 3)
-        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        images.append({
-            "image": img,
-            "page_num": page_num + 1,
-            "name": os.path.basename(pdf_path).replace(".pdf", "") + f"_page_{page_num+1}"
+# Define folders
+UPLOAD_FOLDER = 'uploads'
+RESULTS_FOLDER = 'results'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(RESULTS_FOLDER, exist_ok=True)
+
+# In-memory processing status tracker
+processing_status = {}
+
+@app.route('/')
+def home():
+    return jsonify({
+        "status": "alive",
+        "service": "Emergency Lighting Detection API",
+        "endpoints": [
+            "POST /blueprints/upload",
+            "GET /blueprints/result?pdf_name=..."
+        ]
+    })
+
+@app.route('/blueprints/upload', methods=['POST'])
+def upload():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"error": "No file selected"}), 400
+
+    pdf_name = file.filename
+    project_id = request.form.get('project_id', 'default')
+
+    file_path = os.path.join(UPLOAD_FOLDER, pdf_name)
+    file.save(file_path)
+
+    # Start background processing
+    if pdf_name not in processing_status:
+        processing_status[pdf_name] = {"status": "in_progress"}
+
+    thread = threading.Thread(target=background_process, args=(file_path, pdf_name))
+    thread.start()
+
+    return jsonify({
+        "status": "uploaded",
+        "pdf_name": pdf_name,
+        "message": "Processing started in background."
+    })
+
+@app.route('/blueprints/result', methods=['GET'])
+def get_result():
+    pdf_name = request.args.get('pdf_name')
+    if not pdf_name:
+        return jsonify({"error": "pdf_name is required"}), 400
+
+    if pdf_name not in processing_status:
+        return jsonify({"error": "PDF not found or not processed"}), 404
+
+    status_info = processing_status[pdf_name]
+    if status_info["status"] == "in_progress":
+        return jsonify({
+            "pdf_name": pdf_name,
+            "status": "in_progress",
+            "message": "Processing is still in progress. Please try again later."
         })
-    doc.close()
-    return images
 
-def detect_shaded_rectangles(image, min_area=500, max_area=5000):
-    """Detect shaded rectangles (emergency lights)"""
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 60, 255, cv2.THRESH_BINARY_INV)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if status_info["status"] == "complete":
+        return jsonify({
+            "pdf_name": pdf_name,
+            "status": "complete",
+            "result": status_info["result"]
+        })
 
-    detections = []
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if min_area < area < max_area:
-            x, y, w, h = cv2.boundingRect(cnt)
-            aspect_ratio = w / h
-            if 1.5 < aspect_ratio < 4.0:
-                detections.append({
-                    "bounding_box": [x, y, x+w, y+h],
-                    "area": area,
-                    "aspect_ratio": round(aspect_ratio, 2)
+    return jsonify({
+        "error": "Processing failed",
+        "details": status_info.get("message", "Unknown error")
+    }), 500
+
+def background_process(file_path, pdf_name):
+    try:
+        print(f"🚀 Starting processing for {pdf_name}")
+
+        # Step 1: Extract rulebook (General Notes + Lighting Schedule Table)
+        rulebook = extract_notes_and_table(file_path)
+        rulebook_file = os.path.join(RESULTS_FOLDER, f"rulebook_{pdf_name}.json")
+        with open(rulebook_file, 'w') as f:
+            json.dump({"rulebook": rulebook}, f, indent=2)
+        print(f"✅ Rulebook saved: {len(rulebook)} items")
+
+        # Step 2: Convert PDF to images and detect emergency lights
+        images = pdf_to_images(file_path)
+        all_detections = []
+
+        for img_data in images:
+            detections = detect_shaded_rectangles(img_data["image"])
+            for det in detections:
+                bbox = det["bounding_box"]
+                nearby_text = extract_nearby_text(img_data["image"], bbox)
+
+                # Extract symbol from nearby text
+                symbol = "UNKNOWN"
+                for word in nearby_text.split():
+                    word = word.strip('.,;:()')
+                    if word.isalnum() and word.isupper() and 2 <= len(word) <= 6:
+                        symbol = word
+                        break
+
+                all_detections.append({
+                    "symbol": symbol,
+                    "bounding_box": bbox,
+                    "text_nearby": nearby_text,
+                    "source_sheet": img_data["name"]
                 })
-    return detections
 
-def extract_nearby_text(image, bbox, padding=50):
-    """Extract text near bounding box"""
-    x1, y1, x2, y2 = bbox
-    cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-    h, w = image.shape[:2]
-    roi_x1 = max(0, cx - padding)
-    roi_y1 = max(0, cy - padding)
-    roi_x2 = min(w, cx + padding)
-    roi_y2 = min(h, cy + padding)
-    roi = image[roi_y1:roi_y2, roi_x1:roi_x2]
-    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-    return pytesseract.image_to_string(gray, config='--psm 6').strip()
+        # Save raw detections
+        det_file = os.path.join(RESULTS_FOLDER, f"detections_{pdf_name}.json")
+        with open(det_file, 'w') as f:
+            json.dump(all_detections, f, indent=2)
+        print(f"✅ Found {len(all_detections)} detections")
 
-def extract_notes_and_table(pdf_path):
-    """Extract General Notes and Lighting Schedule Table using OCR on image regions"""
-    doc = fitz.open(pdf_path)
-    rulebook = []
+        # Generate annotation screenshot
+        if images and all_detections:
+            draw_detections(images[0]["image"], all_detections[:10], "annotation_example.png")
+            print("🖼️ Annotation screenshot saved: annotation_example.png")
 
-    for page_num in range(len(doc)):
-        sheet_name = f"{os.path.basename(pdf_path)}_page_{page_num+1}"
-        page = doc.load_page(page_num)
-        pix = page.get_pixmap(dpi=200)
-        img_data = np.frombuffer(pix.samples, dtype=np.uint8)
-        image = img_data.reshape(pix.height, pix.width, 3)
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-        h, w = image.shape[:2]
-
-        # --- Region 1: Top-Left (General Notes)
-        roi_notes = image[50:400, 50:700]
-        notes_text = pytesseract.image_to_string(roi_notes, config='--psm 6').strip()
-        if len(notes_text) > 10:
-            for line in notes_text.split('\n'):
-                line = re.sub(r'\s+', ' ', line.strip())
-                if len(line) > 5 and any(kw in line.lower() for kw in ["emergency", "unswitched", "power", "note"]):
-                    rulebook.append({
-                        "type": "note",
-                        "text": line,
-                        "source_sheet": sheet_name
-                    })
-
-        # --- Region 2: Bottom-Right (Lighting Schedule Table)
-        roi_table = image[h-600:h-100, w-800:w-100]
-        table_text = pytesseract.image_to_string(roi_table, config='--psm 6').strip()
-
-        if len(table_text) > 20:
-            lines = table_text.split('\n')
-            for line in lines:
-                line = re.sub(r'\s+', ' ', line.strip())
-                if not line:
-                    continue
-                parts = line.split()
-                if len(parts) < 3:
-                    continue
-
-                symbol = parts[0]
-                if len(symbol) <= 6 and symbol.isalnum() and symbol.isupper():
-                    description = " ".join(parts[1:5])
-                    rulebook.append({
-                        "type": "table_row",
-                        "symbol": symbol,
-                        "description": description,
-                        "source_sheet": sheet_name
-                    })
-
-    doc.close()
-    return rulebook
-
-def group_lights(detections, rulebook):
-    """Group lights using rulebook"""
-    symbol_desc = {}
-    for item in rulebook:
-        if item["type"] == "table_row":
-            symbol = item["symbol"].strip()
-            symbol = symbol.replace('O', '0').replace('l', '1').replace('I', '1')
-            if len(symbol) <= 5 and symbol.isalnum():
-                symbol_desc[symbol] = item["description"]
-
-    fallback = {
-        "A1": "2x4 LED Emergency Fixture",
-        "A1E": "Exit/Emergency Combo Unit",
-        "W": "Wall-Mounted Emergency LED"
-    }
-
-    summary = {}
-    for det in detections:
-        sym = det["symbol"]
-
-        # Clean up OCR garbage
-        clean_map = {
-            'AIE': 'A1E', 'AlE': 'A1E', 'AE': 'A1E', 'A1': 'A1',
-            'BLOG': 'A1E', 'JOT': 'A1E', 'TA': 'A1E', 'T': 'W'
+        # Step 3: Group lights using rulebook + fallback logic
+        summary = {}
+        fallback = {
+            "A1": "2x4 LED Emergency Fixture",
+            "A1E": "Exit/Emergency Combo Unit",
+            "W": "Wall-Mounted Emergency LED",
+            "P": "Parking Lot Light",
+            "EL": "Emergency Light",
+            "EX": "Exit Sign"
         }
-        sym = clean_map.get(sym, sym)
 
-        desc = symbol_desc.get(sym, fallback.get(sym, "Generic Emergency Light"))
-        key = f"Light_{sym}"
+        for det in all_detections:
+            sym = det["symbol"]
 
-        if key not in summary:
-            summary[key] = {"count": 0, "description": desc}
-        summary[key]["count"] += 1
+            # Clean up common OCR mistakes
+            clean_map = {
+                'AIE': 'A1E', 'AlE': 'A1E', 'AE': 'A1E', 'A1': 'A1',
+                'BLOG': 'A1E', 'JOT': 'A1E', 'TA': 'A1E', 'T': 'W',
+                'I': 'W', 'O': '0', 'S': '5'
+            }
+            sym = clean_map.get(sym, sym)
 
-    return {"summary": summary}
+            # Priority 1: Rulebook
+            desc = None
+            for item in rulebook:
+                if item["type"] == "table_row" and item["symbol"].strip() == sym:
+                    desc = item["description"]
+                    break
 
-def draw_detections(image, detections, output_path):
-    """Draw bounding boxes and labels"""
-    img_copy = image.copy()
-    for det in detections:
-        x1, y1, x2, y2 = det["bounding_box"]
-        cv2.rectangle(img_copy, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cv2.putText(img_copy, det["symbol"], (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-    cv2.imwrite(output_path, img_copy)
+            # Priority 2: Fallback
+            if not desc:
+                desc = fallback.get(sym, "Generic Emergency Light")
+
+            key = f"Light_{sym}"
+            if key not in summary:
+                summary[key] = {"count": 0, "description": desc}
+            summary[key]["count"] += 1
+
+        # Final result
+        final_result = {}
+        for k, v in summary.items():
+            tag = k.replace("Light_", "")
+            final_result[tag] = {"count": v["count"], "description": v["description"]}
+
+        # Save result
+        result_file = os.path.join(RESULTS_FOLDER, f"result_{pdf_name}.json")
+        with open(result_file, 'w') as f:
+            json.dump(final_result, f, indent=2)
+
+        # Update status
+        processing_status[pdf_name] = {
+            "status": "complete",
+            "result": final_result
+        }
+        print("🎉 Processing complete!")
+
+    except Exception as e:
+        print(f"❌ ERROR: {e}")
+        processing_status[pdf_name] = {
+            "status": "error",
+            "message": str(e)
+        }
+
+# Run the app
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    print(f"✅ Starting Flask server on http://0.0.0.0:{port}")
+    app.run(host='0.0.0.0', port=port)
